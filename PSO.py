@@ -98,7 +98,7 @@ for machine in range(num_machines):
     print(f"Machine {machine+1}: Tasks {tasks}, Total time {total_time}")
 
 
-OUTPUT:
+"""OUTPUT:
 Initial best makespan: 11
 
 --- Iteration 1 ---
@@ -758,4 +758,4 @@ Machine 1: Tasks [0, 1, 3], Total time 10
 Machine 2: Tasks [2, 5], Total time 11
 Machine 3: Tasks [4], Total time 8
 
-=== Code Execution Successful ===
+=== Code Execution Successful ==="""
