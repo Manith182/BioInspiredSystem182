@@ -1,0 +1,47 @@
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+
+def load_gray(path):
+    return np.asarray(Image.open(path).convert("L")).astype(np.float32) / 255.0
+
+def save_gray(arr, path):
+    Image.fromarray((np.clip(arr, 0, 1)*255).astype(np.uint8)).save(path)
+
+def vec_pca_denoise(noisy, gens=80, sigma=0.015, lam=2.0):
+    pop = noisy.copy()
+    h, w = pop.shape
+    for _ in range(gens):
+        old = pop.copy()
+        padded = np.pad(old, ((1,1),(1,1)), mode='edge')
+        s = (
+            padded[0:h,0:w] + padded[0:h,1:w+1] + padded[0:h,2:w+2] +
+            padded[1:h+1,0:w] + padded[1:h+1,1:w+1] + padded[1:h+1,2:w+2] +
+            padded[2:h+2,0:w] + padded[2:h+2,1:w+1] + padded[2:h+2,2:w+2]
+        )
+        neigh_mean = s / 9.0
+        mutated = np.clip(old + np.random.normal(scale=sigma, size=old.shape), 0.0, 1.0)
+        ec = (old - noisy)**2 + lam*(old - neigh_mean)**2
+        em = (mutated - noisy)**2 + lam*(mutated - neigh_mean)**2
+        pop[em < ec] = mutated[em < ec]
+    return pop
+
+# ---- MAIN ----
+path = "image.jpg" 
+img = load_gray(path)
+
+# add artificial noise (optional, skip if your image is already noisy)
+noisy = np.clip(img + np.random.normal(0, 0.08, img.shape), 0, 1)
+
+# run PCA denoising
+den = vec_pca_denoise(noisy, gens=100, sigma=0.012, lam=2.5)
+
+# save & show results
+save_gray(noisy, "pca_noisy.png")
+save_gray(den, "pca_denoised.png")
+
+plt.figure(figsize=(10,4))
+plt.subplot(1,3,1); plt.imshow(img, cmap='gray'); plt.title("Original"); plt.axis("off")
+plt.subplot(1,3,2); plt.imshow(noisy, cmap='gray'); plt.title("Noisy"); plt.axis("off")
+plt.subplot(1,3,3); plt.imshow(den, cmap='gray'); plt.title("PCA Denoised"); plt.axis("off")
+plt.show()
