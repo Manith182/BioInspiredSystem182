@@ -1,0 +1,78 @@
+import numpy as np
+import math
+
+# ---- Supply Chain Cost Function ----
+def supply_chain_cost(x):
+    # Quadratic cost components
+    transport_cost = 3 * x[0] ** 2 + 10 * x[0]     # transport cost + fixed cost
+    inventory_cost = 2 * x[1] ** 2 + 5 * x[1]      # inventory cost + fixed cost
+    lead_time_cost = 5 * x[2] ** 2 + 8 * x[2]      # lead time cost + fixed cost
+
+    # Penalty for constraint violations
+    penalty = 0
+    if sum(x) > 10:   # capacity constraint
+        penalty += 1000 * (sum(x) - 10)
+    if sum(x) < 5:    # demand constraint
+        penalty += 1000 * (5 - sum(x))
+
+    return transport_cost + inventory_cost + lead_time_cost + penalty
+
+
+# ---- Levy Flight Function ----
+def levy_flight(Lambda):
+    sigma = (math.gamma(1 + Lambda) * math.sin(math.pi * Lambda / 2) /
+             (math.gamma((1 + Lambda) / 2) * Lambda * 2 ** ((Lambda - 1) / 2))) ** (1 / Lambda)
+    u = np.random.normal(0, sigma)
+    v = np.random.normal(0, 1)
+    step = u / abs(v) ** (1 / Lambda)
+    return step
+
+
+# ---- Cuckoo Search Algorithm ----
+def cuckoo_search(n=15, max_iter=100, pa=0.25):
+    dim = 3  # decision variables: transport, inventory, lead time
+    lb = np.ones(dim) * 0.5   # lower bound (avoid zeros)
+    ub = np.ones(dim) * 5.0   # upper bound
+
+    nests = np.random.uniform(lb, ub, (n, dim))
+    fitness = np.array([supply_chain_cost(x) for x in nests])
+
+    best_nest = nests[np.argmin(fitness)].copy()
+    best_fitness = np.min(fitness)
+
+    for t in range(max_iter):
+        for i in range(n):
+            # Generate new solution using Levy flight
+            step_size = levy_flight(1.5)
+            new_nest = nests[i] + step_size * (best_nest - nests[i]) * np.random.randn(dim)
+            new_nest = np.clip(new_nest, lb, ub)
+
+            new_fitness = supply_chain_cost(new_nest)
+            if new_fitness < fitness[i]:
+                nests[i] = new_nest
+                fitness[i] = new_fitness
+
+        # Abandon a fraction of worst nests
+        worst_idx = np.argsort(fitness)[int((1 - pa) * n):]
+        for j in worst_idx:
+            nests[j] = np.random.uniform(lb, ub, dim)
+            fitness[j] = supply_chain_cost(nests[j])
+
+        # Update best solution
+        current_best_idx = np.argmin(fitness)
+        if fitness[current_best_idx] < best_fitness:
+            best_fitness = fitness[current_best_idx]
+            best_nest = nests[current_best_idx].copy()
+
+        if t % 10 == 0:
+            print(f"Iteration {t}, Best Cost: {best_fitness:.4f}")
+
+    return best_nest, best_fitness
+
+
+# ---- Run the Algorithm ----
+best_solution, best_cost = cuckoo_search()
+
+print("\nOptimal Supply Chain Configuration:")
+print("Decision Variables (Transport, Inventory, Lead Time):", best_solution)
+print("Minimum Total Cost:", best_cost)
