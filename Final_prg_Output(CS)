@@ -1,0 +1,14 @@
+Iteration 0, Best Cost: 95.1652
+Iteration 10, Best Cost: 61.2556
+Iteration 20, Best Cost: 59.9842
+Iteration 30, Best Cost: 59.9842
+Iteration 40, Best Cost: 59.9842
+Iteration 50, Best Cost: 59.6446
+Iteration 60, Best Cost: 59.6446
+Iteration 70, Best Cost: 59.6446
+Iteration 80, Best Cost: 59.3805
+Iteration 90, Best Cost: 59.3805
+
+Optimal Supply Chain Configuration:
+Decision Variables (Transport, Inventory, Lead Time): [1.11393462 3.10208757 0.80107089]
+Minimum Total Cost: 59.235369658813305
