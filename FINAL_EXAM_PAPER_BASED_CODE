@@ -1,0 +1,120 @@
+import numpy as np
+import pandas as pd
+import random
+
+from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import mutual_info_classif
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+# ---------------------------------------------------
+# Load Dataset
+# ---------------------------------------------------
+data = pd.read_csv("parkinsons.csv")   # change path if needed
+X = data.drop("class", axis=1)
+y = data["class"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42
+)
+
+TOTAL_FEATURES = X.shape[1]
+SELECT_PERCENT = 0.25
+SELECT_COUNT = int(TOTAL_FEATURES * SELECT_PERCENT)
+
+# ---------------------------------------------------
+# Classifiers
+# ---------------------------------------------------
+models = {
+    "Decision Tree": DecisionTreeClassifier(),
+    "Gradient Boosting": GradientBoostingClassifier(),
+    "KNN": KNeighborsClassifier(),
+    "SVM": SVC()
+}
+
+# ---------------------------------------------------
+# Evaluate model
+# ---------------------------------------------------
+def evaluate(features):
+    results = {}
+    for name, model in models.items():
+        model.fit(X_train[features], y_train)
+        pred = model.predict(X_test[features])
+        results[name] = accuracy_score(y_test, pred)
+    return results
+
+# ---------------------------------------------------
+# FILTER BASED FEATURE SELECTION (MIG)
+# ---------------------------------------------------
+mi_scores = mutual_info_classif(X_train, y_train)
+mi_df = pd.DataFrame({
+    "feature": X.columns,
+    "score": mi_scores
+}).sort_values(by="score", ascending=False)
+
+mig_features = mi_df.head(SELECT_COUNT)["feature"].tolist()
+
+print("\nFilter Based (MIG) Results")
+print(evaluate(mig_features))
+
+# ---------------------------------------------------
+# RANDOM MUTATION HILL CLIMBING (RMHC)
+# ---------------------------------------------------
+def RMHC(iterations=50):
+    best_features = random.sample(list(X.columns), SELECT_COUNT)
+    best_acc = 0
+
+    for _ in range(iterations):
+        candidate = random.sample(list(X.columns), SELECT_COUNT)
+        acc = evaluate(candidate)["Gradient Boosting"]
+
+        if acc > best_acc:
+            best_acc = acc
+            best_features = candidate
+
+    return best_features
+
+rmhc_features = RMHC()
+
+print("\nWrapper Based (RMHC) Results")
+print(evaluate(rmhc_features))
+
+# ---------------------------------------------------
+# MUTUAL INFORMATION BASED CUCKOO SEARCH (MIBCS)
+# ---------------------------------------------------
+def cuckoo_search(n_nests=10, iterations=30):
+    nests = [random.sample(list(X.columns), SELECT_COUNT) for _ in range(n_nests)]
+    fitness = [evaluate(n)["Gradient Boosting"] for n in nests]
+
+    for _ in range(iterations):
+        i = random.randint(0, n_nests - 1)
+        j = random.randint(0, n_nests - 1)
+
+        new_nest = random.sample(list(X.columns), SELECT_COUNT)
+        new_fit = evaluate(new_nest)["Gradient Boosting"]
+
+        if new_fit > fitness[j]:
+            nests[j] = new_nest
+            fitness[j] = new_fit
+
+        # abandon worst nest
+        worst = np.argmin(fitness)
+        nests[worst] = random.sample(list(X.columns), SELECT_COUNT)
+        fitness[worst] = evaluate(nests[worst])["Gradient Boosting"]
+
+    best_index = np.argmax(fitness)
+    return nests[best_index]
+
+mibcs_features = cuckoo_search()
+
+print("\nWrapper Based (MIBCS) Results")
+print(evaluate(mibcs_features))
+
+# ---------------------------------------------------
+# USING ALL FEATURES
+# ---------------------------------------------------
+print("\nAll Features Results")
+print(evaluate(list(X.columns)))
